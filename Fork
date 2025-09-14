@@ -1,0 +1,77 @@
+import csv
+import re
+from collections import Counter, defaultdict
+from datetime import datetime
+
+def get_browser(user_agent):
+    # Use regex to match common browser types
+    if re.search(r'firefox', user_agent, re.IGNORECASE):
+        return 'Firefox'
+    elif re.search(r'chrome', user_agent, re.IGNORECASE):
+        return 'Chrome'
+    elif re.search(r'msie|trident', user_agent, re.IGNORECASE):
+        return 'Internet Explorer'
+    elif re.search(r'safari', user_agent, re.IGNORECASE) and not re.search(r'chrome', user_agent, re.IGNORECASE):
+        return 'Safari'
+    else:
+        return 'Other'
+
+
+def is_image(path):
+    # Only tally .jpg, .gif, .png (case insensitive)
+    return re.search(r'\.(jpg|gif|png)$', path, re.IGNORECASE)
+
+
+def main():
+    logfile = 'weblog-1.csv'
+    total_hits = 0
+    image_hits = 0
+    browser_counter = Counter()
+    hourly_hits = defaultdict(int)
+
+    with open(logfile, 'r', encoding='utf-8') as f:
+        reader = csv.reader(f)
+        for row in reader:
+            if len(row) < 5:
+                continue  # skip malformed rows
+            path, dt_str, user_agent, status, size = row
+            total_hits += 1
+
+            # Image hit check
+            if is_image(path):
+                image_hits += 1
+
+            # Browser stats
+            browser = get_browser(user_agent)
+            browser_counter[browser] += 1
+
+            # Extract hour
+            try:
+                dt_obj = datetime.strptime(dt_str, '%Y-%m-%d %H:%M:%S')
+                hour = dt_obj.hour
+                hourly_hits[hour] += 1
+            except ValueError:
+                continue  # skip lines with bad timestamp
+
+    # Output results
+    image_pct = (image_hits / total_hits) * 100 if total_hits > 0 else 0
+    print(f"Image requests account for {image_pct:.1f}% of all requests")
+
+    # Most popular browser
+    if browser_counter:
+        most_popular_browser = browser_counter.most_common(1)[0][0]
+        print(f"The most popular browser is: {most_popular_browser}")
+    else:
+        print("No browser info found.")
+
+    # Extra Credit: Output hits by hour (sorted descending)
+    print("--- Hourly hit breakdown ---")
+    for hour, hits in sorted(hourly_hits.items(), key=lambda x: x[1], reverse=True):
+        print(f"Hour {hour:02d} has {hits} hits")
+    # Also, print hours with zero hits
+    for hour in range(24):
+        if hour not in hourly_hits:
+            print(f"Hour {hour:02d} has 0 hits")
+
+if __name__ == '__main__':
+    main()    
